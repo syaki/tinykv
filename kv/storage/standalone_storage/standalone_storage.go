@@ -87,7 +87,8 @@ func NewStandAloneStorageReader(db *badger.DB) *StandAloneStorageReader {
 }
 
 func (reader *StandAloneStorageReader) GetCF(cf string, key []byte) ([]byte, error) {
-	var value []byte = nil
+	var value []byte
+
 	err := reader.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
@@ -95,17 +96,10 @@ func (reader *StandAloneStorageReader) GetCF(cf string, key []byte) ([]byte, err
 		}
 
 		value, err = item.Value()
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
+	return value, err
 }
 
 func (reader *StandAloneStorageReader) IterCF(cf string) engine_util.DBIterator {
