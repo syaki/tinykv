@@ -53,26 +53,32 @@ func (s *StandAloneStorage) Reader(ctx *kvrpcpb.Context) (storage.StorageReader,
 }
 
 func (s *StandAloneStorage) Write(ctx *kvrpcpb.Context, batch []storage.Modify) error {
-	for _, data := range batch {
-		// cf := data.Cf()
-		// switch cf {
-		// case engine_util.CfDefault:
-		// case engine_util.CfLock:
-		// default:
-		err := s.writeWithCfDefault(data.Key(), data.Value())
-		if err != nil {
-			return err
+	for _, modify := range batch {
+		if modify.Value() == nil {
+			err := s.deleteWithCfDefault(modify.Key())
+			if err != nil {
+				return err
+			}
+		} else {
+			err := s.writeWithCfDefault(modify.Key(), modify.Value())
+			if err != nil {
+				return err
+			}
 		}
-		// }
 	}
 
 	return nil
 }
 
+func (s *StandAloneStorage) deleteWithCfDefault(key []byte) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete(key)
+	})
+}
+
 func (s *StandAloneStorage) writeWithCfDefault(key []byte, value []byte) error {
 	return s.db.Update(func(txn *badger.Txn) error {
-		txn.Set(key, value)
-		return nil
+		return txn.Set(key, value)
 	})
 }
 
@@ -98,6 +104,10 @@ func (reader *StandAloneStorageReader) GetCF(cf string, key []byte) ([]byte, err
 		value, err = item.Value()
 		return err
 	})
+
+	if err == badger.ErrKeyNotFound {
+		return value, nil
+	}
 
 	return value, err
 }
